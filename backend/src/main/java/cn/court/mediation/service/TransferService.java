@@ -3,6 +3,8 @@ package cn.court.mediation.service;
 import cn.court.mediation.common.BizException;
 import cn.court.mediation.entity.*;
 import cn.court.mediation.enums.CaseStatus;
+import cn.court.mediation.enums.RescheduleInitiator;
+import cn.court.mediation.enums.ScheduleStatus;
 import cn.court.mediation.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,13 +32,16 @@ public class TransferService {
     private final FollowUpRepository followUpRepository;
     private final DeliveryRepository deliveryRepository;
     private final FaceVerificationRepository faceRepository;
+    private final ScheduleRepository scheduleRepository;
+    private final UserRepository userRepository;
     private final TimelineService timelineService;
 
     public TransferService(TransferMaterialRepository transferRepository, CaseRepository caseRepository,
                            TimelineRepository timelineRepository, MediationRecordRepository recordRepository,
                            AgreementRepository agreementRepository, PerformancePlanRepository planRepository,
                            FollowUpRepository followUpRepository, DeliveryRepository deliveryRepository,
-                           FaceVerificationRepository faceRepository, TimelineService timelineService) {
+                           FaceVerificationRepository faceRepository, ScheduleRepository scheduleRepository,
+                           UserRepository userRepository, TimelineService timelineService) {
         this.transferRepository = transferRepository;
         this.caseRepository = caseRepository;
         this.timelineRepository = timelineRepository;
@@ -46,6 +51,8 @@ public class TransferService {
         this.followUpRepository = followUpRepository;
         this.deliveryRepository = deliveryRepository;
         this.faceRepository = faceRepository;
+        this.scheduleRepository = scheduleRepository;
+        this.userRepository = userRepository;
         this.timelineService = timelineService;
     }
 
@@ -205,7 +212,35 @@ public class TransferService {
         sb.append("【分流情况】\n").append(c.getTriageOpinion() == null ? "（无）" : c.getTriageOpinion()).append("\n");
         sb.append("失联情况：").append(Boolean.TRUE.equals(c.getRespondentMissing()) ? "曾登记失联" : "无")
                 .append("；材料缺件：").append(Boolean.FALSE.equals(c.getEvidenceComplete()) ? "未补齐：" + c.getEvidenceGapNote() : "已齐备")
-                .append("；改期次数：").append(c.getRescheduleCount()).append("\n\n");
+                .append("；改期次数：").append(c.getRescheduleCount())
+                .append("；窗口是否继续调解：")
+                .append("CONTINUE".equals(c.getContinuationDecision()) ? "已决定继续"
+                        : "DIVERT".equals(c.getContinuationDecision()) ? "已确认分流" : "待决定")
+                .append("\n\n");
+
+        // 排期与历次改期（取消原因、发起方、双方确认、是否计入工作人员延误）
+        List<MediationSchedule> schedules = scheduleRepository.findByCaseIdOrderByStartTimeDesc(c.getId());
+        sb.append("【排期与历次改期记录】（共").append(schedules.size()).append("条，时间倒序）\n");
+        for (MediationSchedule s : schedules) {
+            String mediatorName = s.getMediatorId() == null ? "—"
+                    : userRepository.findById(s.getMediatorId()).map(User::getRealName).orElse("—");
+            sb.append("— 第").append(s.getRoundNo()).append("次 ").append(s.getStatus().getLabel()).append(" —\n");
+            sb.append("时间：").append(s.getStartTime()).append(" 至 ").append(s.getEndTime()).append("\n");
+            sb.append("方式：").append(s.getChannel() == null ? "—" : s.getChannel().getLabel())
+                    .append("；地点/会议：").append(nz(s.getLocation())).append("；调解员：").append(mediatorName).append("\n");
+            sb.append("双方确认：申请人").append(Boolean.TRUE.equals(s.getApplicantConfirmed()) ? "已确认" : "未确认")
+                    .append("，被申请人").append(Boolean.TRUE.equals(s.getRespondentConfirmed()) ? "已确认" : "未确认").append("\n");
+            if (s.getStatus() == ScheduleStatus.RESCHEDULED) {
+                RescheduleInitiator init = s.getInitiator() == null ? RescheduleInitiator.BOTH_PARTIES : s.getInitiator();
+                sb.append("取消原因：").append(nz(s.getCancelReason())).append("\n");
+                sb.append("发起方：").append(init.getLabel()).append("；归责：")
+                        .append(init.isPartySide()
+                                ? "当事人临时变更，不计入调解员（工作人员）延误"
+                                : init.getReasonCategory() + "，计入工作人员排班延误")
+                        .append("\n");
+            }
+        }
+        sb.append("\n");
 
         List<MediationRecord> records = recordRepository.findByCaseIdOrderByRoundNoDescCreatedAtDesc(c.getId());
         sb.append("【调解笔录】（共").append(records.size()).append("次）\n");

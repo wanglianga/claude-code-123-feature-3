@@ -41,7 +41,7 @@
     <el-card shadow="never" class="mt">
       <el-tabs v-model="tab">
         <el-tab-pane label="分流与排期" name="schedule">
-          <TriageSchedule :data="data" @changed="load" />
+          <TriageSchedule :data="data" @changed="load" @go-transfer="tab = 'transfer'" />
         </el-tab-pane>
         <el-tab-pane label="调解与协议" name="mediation">
           <MediationPanel :data="data" @changed="load" />

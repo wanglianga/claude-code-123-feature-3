@@ -1,0 +1,20 @@
+services:
+  mediation-platform:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: court-mediation-platform:latest
+    container_name: court-mediation-platform
+    ports:
+      - "8080:8080"
+    # 默认使用 H2 内存库，零外部依赖；数据随容器重置（演示环境）
+    environment:
+      - SPRING_PROFILES_ACTIVE=h2
+      - JAVA_OPTS=-Xms128m -Xmx512m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s

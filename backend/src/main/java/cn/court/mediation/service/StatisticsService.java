@@ -1,11 +1,15 @@
 package cn.court.mediation.service;
 
 import cn.court.mediation.entity.MediationCase;
+import cn.court.mediation.entity.MediationSchedule;
 import cn.court.mediation.entity.PerformancePlan;
 import cn.court.mediation.enums.CaseStatus;
 import cn.court.mediation.enums.CaseType;
+import cn.court.mediation.enums.RescheduleInitiator;
+import cn.court.mediation.enums.ScheduleStatus;
 import cn.court.mediation.repository.CaseRepository;
 import cn.court.mediation.repository.PerformancePlanRepository;
+import cn.court.mediation.repository.ScheduleRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,11 +23,18 @@ public class StatisticsService {
 
     private final CaseRepository caseRepository;
     private final PerformancePlanRepository planRepository;
+    private final ScheduleRepository scheduleRepository;
 
-    public StatisticsService(CaseRepository caseRepository, PerformancePlanRepository planRepository) {
+    public StatisticsService(CaseRepository caseRepository, PerformancePlanRepository planRepository,
+                             ScheduleRepository scheduleRepository) {
         this.caseRepository = caseRepository;
         this.planRepository = planRepository;
+        this.scheduleRepository = scheduleRepository;
     }
+
+    private static final EnumSet<CaseStatus> ACTIVE_DIVERT = EnumSet.of(
+            CaseStatus.TRIAGED, CaseStatus.SCHEDULED, CaseStatus.MEDIATING,
+            CaseStatus.OVERDUE, CaseStatus.PENDING_TRIAGE);
 
     @Transactional(readOnly = true)
     public Map<String, Object> dashboard() {
@@ -113,9 +124,28 @@ public class StatisticsService {
 
         // 改期与失联风险
         Map<String, Object> risks = new LinkedHashMap<>();
-        risks.put("repeatReschedule", all.stream().filter(c -> c.getRescheduleCount() != null && c.getRescheduleCount() >= 2).count());
+        List<MediationCase> repeatCases = all.stream()
+                .filter(c -> c.getRescheduleCount() != null && c.getRescheduleCount() >= 2).toList();
+        risks.put("repeatReschedule", repeatCases.size());
+        risks.put("diversionPending", repeatCases.stream()
+                .filter(c -> !Boolean.TRUE.equals(c.getContinuationReviewed())
+                        && ACTIVE_DIVERT.contains(c.getStatus())).count());
+        risks.put("diversionDecided", repeatCases.stream()
+                .filter(c -> Boolean.TRUE.equals(c.getContinuationReviewed())).count());
         risks.put("missing", missing);
         risks.put("evidenceGap", all.stream().filter(c -> Boolean.FALSE.equals(c.getEvidenceComplete())).count());
+
+        // 改期归责：当事人临时变更 vs 工作人员原因（工作人员原因才计入延误）
+        long partySide = 0, staffSide = 0;
+        List<MediationSchedule> allRescheduled = scheduleRepository.findAll().stream()
+                .filter(s -> s.getStatus() == ScheduleStatus.RESCHEDULED).toList();
+        for (MediationSchedule s : allRescheduled) {
+            RescheduleInitiator init = s.getInitiator() == null
+                    ? RescheduleInitiator.BOTH_PARTIES : s.getInitiator();
+            if (init.isPartySide()) partySide++; else staffSide++;
+        }
+        risks.put("partySideReschedules", partySide);
+        risks.put("staffSideReschedules", staffSide);
         m.put("risks", risks);
 
         return m;
@@ -138,6 +168,11 @@ public class StatisticsService {
                     } else if (Boolean.TRUE.equals(c.getTransferRequested())
                             && c.getStatus() != CaseStatus.TRANSFERRED) {
                         action = "转立案材料待接收"; tag = "warning";
+                    } else if (c.getRescheduleCount() != null && c.getRescheduleCount() >= 2
+                            && !Boolean.TRUE.equals(c.getContinuationReviewed())
+                            && EnumSet.of(CaseStatus.TRIAGED, CaseStatus.SCHEDULED,
+                                    CaseStatus.MEDIATING, CaseStatus.OVERDUE).contains(c.getStatus())) {
+                        action = "多次改期，待决定继续/分流"; tag = "warning";
                     } else if (Boolean.FALSE.equals(c.getEvidenceComplete())) {
                         action = "证据材料缺件跟进"; tag = "warning";
                     }

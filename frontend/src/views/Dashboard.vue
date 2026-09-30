@@ -52,11 +52,23 @@
             <el-descriptions-item label="多次改期案件（≥2次）">
               <el-tag type="warning">{{ d.risks.repeatReschedule }} 件</el-tag>
             </el-descriptions-item>
+            <el-descriptions-item label="多次改期·待窗口决定">
+              <el-tag type="danger">{{ d.risks.diversionPending ?? 0 }} 件</el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="窗口已研判（继续/分流）">
+              <el-tag type="info">{{ d.risks.diversionDecided ?? 0 }} 件</el-tag>
+            </el-descriptions-item>
             <el-descriptions-item label="被申请人失联在办">
               <el-tag type="danger">{{ d.risks.missing }} 件</el-tag>
             </el-descriptions-item>
             <el-descriptions-item label="证据材料缺件">
               <el-tag type="danger">{{ d.risks.evidenceGap }} 件</el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="改期·当事人临时变更（不计工作人员延误）">
+              <el-tag type="warning">{{ d.risks.partySideReschedules ?? 0 }} 次</el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="改期·工作人员原因（计入排班延误）">
+              <el-tag :type="(d.risks.staffSideReschedules ?? 0) > 0 ? 'danger' : 'info'">{{ d.risks.staffSideReschedules ?? 0 }} 次</el-tag>
             </el-descriptions-item>
           </el-descriptions>
         </el-card>

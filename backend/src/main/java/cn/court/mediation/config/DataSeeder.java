@@ -29,13 +29,18 @@ public class DataSeeder implements CommandLineRunner {
     private final FollowUpRepository followUpRepository;
     private final DeliveryRepository deliveryRepository;
     private final TransferMaterialRepository transferRepository;
+    private final MeetingResourceRepository resourceRepository;
+    private final PartyAvailabilityRepository availabilityRepository;
     private final TimelineService timelineService;
 
     public DataSeeder(UserRepository userRepository, CaseRepository caseRepository,
                       ScheduleRepository scheduleRepository, MediationRecordRepository recordRepository,
                       AgreementRepository agreementRepository, PerformancePlanRepository planRepository,
                       FollowUpRepository followUpRepository, DeliveryRepository deliveryRepository,
-                      TransferMaterialRepository transferRepository, TimelineService timelineService) {
+                      TransferMaterialRepository transferRepository,
+                      MeetingResourceRepository resourceRepository,
+                      PartyAvailabilityRepository availabilityRepository,
+                      TimelineService timelineService) {
         this.userRepository = userRepository;
         this.caseRepository = caseRepository;
         this.scheduleRepository = scheduleRepository;
@@ -45,6 +50,8 @@ public class DataSeeder implements CommandLineRunner {
         this.followUpRepository = followUpRepository;
         this.deliveryRepository = deliveryRepository;
         this.transferRepository = transferRepository;
+        this.resourceRepository = resourceRepository;
+        this.availabilityRepository = availabilityRepository;
         this.timelineService = timelineService;
     }
 
@@ -68,6 +75,13 @@ public class DataSeeder implements CommandLineRunner {
         User assistant = user("assistant", "assistant123", "孙法官助理", "1390000001", Role.ASSISTANT, null, "速裁庭");
         User execution = user("execution", "exec123", "周执行联络", "1390000002", Role.EXECUTION, null, "执行局");
         userRepository.saveAll(java.util.List.of(admin, window, zhang, li, zhao, party, assistant, execution));
+
+        // ---------- 调解资源：线下调解室 + 线上视频会议（参与冲突检测与平台重匹配） ----------
+        MeetingResource room1 = resource("院部第一调解室", ResourceType.OFFLINE_ROOM, "本院诉讼服务中心一楼101", 12);
+        MeetingResource room2 = resource("院部第二调解室", ResourceType.OFFLINE_ROOM, "本院诉讼服务中心一楼102", 8);
+        MeetingResource onlineA = resource("线上视频会议室A", ResourceType.ONLINE_MEETING, "法院视频调解平台·房间A", 6);
+        MeetingResource onlineB = resource("线上视频会议室B", ResourceType.ONLINE_MEETING, "法院视频调解平台·房间B", 6);
+        resourceRepository.saveAll(java.util.List.of(room1, room2, onlineA, onlineB));
 
         // 1) 待分流（新申请）
         MediationCase c1 = baseCase("TZ" + date(0) + "001", CaseType.LOAN, CaseStatus.PENDING_TRIAGE,
@@ -115,14 +129,23 @@ public class DataSeeder implements CommandLineRunner {
         c4.setTriagedAt(LocalDateTime.now().minusDays(4));
         caseRepository.save(c4);
         timelineService.record(c4.getId(), "TRIAGE", "立案窗口完成分流", "外地当事人，线上调解，赵调解员承办。", window);
-        MediationSchedule s4 = schedule(c4.getId(), zhao.getId(), Channel.ONLINE, "线上调解室（视频号802）",
+        MediationSchedule s4 = schedule(c4.getId(), zhao.getId(), Channel.ONLINE, "线上视频会议室A（法院视频调解平台·房间A）",
                 LocalDateTime.now().plusDays(1).withHour(10).withMinute(0).withSecond(0).withNano(0),
                 LocalDateTime.now().plusDays(1).withHour(11).withMinute(0).withSecond(0).withNano(0),
                 ScheduleStatus.PLANNED, 1, null);
+        s4.setResourceId(onlineA.getId());
         s4.setApplicantConfirmed(true);
         scheduleRepository.save(s4);
+        availability(c4.getId(), "APPLICANT",
+                LocalDateTime.now().plusDays(1).withHour(9).withMinute(0).withSecond(0).withNano(0),
+                LocalDateTime.now().plusDays(1).withHour(12).withMinute(0).withSecond(0).withNano(0),
+                "工作日上午均可", zhao, availabilityRepository);
+        availability(c4.getId(), "RESPONDENT",
+                LocalDateTime.now().plusDays(1).withHour(10).withMinute(0).withSecond(0).withNano(0),
+                LocalDateTime.now().plusDays(1).withHour(16).withMinute(0).withSecond(0).withNano(0),
+                "外地，下午前可上线", zhao, availabilityRepository);
         timelineService.record(c4.getId(), "SCHEDULE", "第1次调解已排期",
-                "明日10:00线上视频调解。申请人已确认出席。", window);
+                "明日10:00线上视频调解（线上视频会议室A）。申请人已确认出席。", window);
 
         // 5) 调解中 + 多次改期（邻里纠纷）
         MediationCase c5 = baseCase("TZ" + date(-10) + "005", CaseType.NEIGHBOR, CaseStatus.MEDIATING,
@@ -133,21 +156,43 @@ public class DataSeeder implements CommandLineRunner {
         c5.setMediatorId(zhang.getId());
         c5.setChannel(Channel.OFFLINE);
         c5.setRescheduleCount(2);
+        c5.setRescheduleRiskLevel(2);
         caseRepository.save(c5);
         timelineService.record(c5.getId(), "TRIAGE", "立案窗口完成分流", "线下调解，张调解员承办。", window);
-        scheduleRepository.save(schedule(c5.getId(), zhang.getId(), Channel.OFFLINE, "第一调解室",
+        MediationSchedule s5old1 = schedule(c5.getId(), zhang.getId(), Channel.OFFLINE, "院部第一调解室（本院诉讼服务中心一楼101）",
                 LocalDateTime.now().minusDays(8), LocalDateTime.now().minusDays(8).plusHours(1),
-                ScheduleStatus.RESCHEDULED, 1, "被申请人临时务工外出，改期原因：时间冲突"));
-        timelineService.record(c5.getId(), "RESCHEDULE", "第1次改期", "被申请人务工外出，已改约。", zhang);
-        scheduleRepository.save(schedule(c5.getId(), zhang.getId(), Channel.OFFLINE, "第一调解室",
+                ScheduleStatus.RESCHEDULED, 1, "改期原因：被申请人临时务工外出（发起方：被申请人）");
+        s5old1.setResourceId(room1.getId());
+        s5old1.setCancelReason("被申请人临时务工外出，无法到庭");
+        s5old1.setInitiator(RescheduleInitiator.RESPONDENT);
+        scheduleRepository.save(s5old1);
+        timelineService.record(c5.getId(), "RESCHEDULE", "第1次改期",
+                "被申请人临时务工外出，已改约；当事人临时变更，不计入调解员延误。", zhang);
+        MediationSchedule s5old2 = schedule(c5.getId(), zhang.getId(), Channel.OFFLINE, "院部第一调解室（本院诉讼服务中心一楼101）",
                 LocalDateTime.now().minusDays(5), LocalDateTime.now().minusDays(5).plusHours(1),
-                ScheduleStatus.RESCHEDULED, 2, "申请人身体不适，改期原因：申请人就医"));
+                ScheduleStatus.RESCHEDULED, 2, "改期原因：申请人就医（发起方：申请人）");
+        s5old2.setResourceId(room1.getId());
+        s5old2.setCancelReason("申请人身体不适需就医");
+        s5old2.setInitiator(RescheduleInitiator.APPLICANT);
+        scheduleRepository.save(s5old2);
         timelineService.record(c5.getId(), "RESCHEDULE", "第2次改期",
-                "申请人就医。【多次改期预警：已累计2次，过程留痕将随卷提交法官】", zhang);
-        MediationSchedule s5 = schedule(c5.getId(), zhang.getId(), Channel.OFFLINE, "第一调解室",
-                LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(2).plusHours(1),
-                ScheduleStatus.FINISHED, 3, null);
+                "申请人就医。【多次改期预警：已累计2次，系统列入分流建议，待窗口决定是否继续调解】当事人临时变更，不计入调解员延误。", zhang);
+        MediationSchedule s5 = schedule(c5.getId(), zhang.getId(), Channel.OFFLINE, "院部第一调解室（本院诉讼服务中心一楼101）",
+                LocalDateTime.now().plusDays(2).withHour(9).withMinute(0).withSecond(0).withNano(0),
+                LocalDateTime.now().plusDays(2).withHour(10).withMinute(0).withSecond(0).withNano(0),
+                ScheduleStatus.PLANNED, 3, "由第2次改期而来（发起方：申请人）");
+        s5.setResourceId(room1.getId());
+        s5.setRescheduleFromId(s5old2.getId());
+        s5.setApplicantConfirmed(true);
         scheduleRepository.save(s5);
+        availability(c5.getId(), "APPLICANT",
+                LocalDateTime.now().plusDays(2).withHour(9).withMinute(0).withSecond(0).withNano(0),
+                LocalDateTime.now().plusDays(2).withHour(11).withMinute(0).withSecond(0).withNano(0),
+                "已康复，后天上午可到", zhang, availabilityRepository);
+        availability(c5.getId(), "RESPONDENT",
+                LocalDateTime.now().plusDays(2).withHour(9).withMinute(0).withSecond(0).withNano(0),
+                LocalDateTime.now().plusDays(2).withHour(11).withMinute(0).withSecond(0).withNano(0),
+                "后天调休可到庭", zhang, availabilityRepository);
         MediationRecord r5 = new MediationRecord();
         r5.setCaseId(c5.getId());
         r5.setScheduleId(s5.getId());
@@ -241,6 +286,12 @@ public class DataSeeder implements CommandLineRunner {
         c9.setRespondentMissing(true);
         c9.setMissingAt(LocalDateTime.now().minusDays(15));
         c9.setRescheduleCount(2);
+        c9.setRescheduleRiskLevel(2);
+        c9.setContinuationReviewed(true);
+        c9.setContinuationDecision("DIVERT");
+        c9.setContinuationNote("被申请人失联且两次改期，调解效率风险高，窗口确认分流，转立案处理");
+        c9.setContinuationReviewedAt(LocalDateTime.now().minusDays(10));
+        c9.setContinuationReviewedBy(window.getId());
         c9.setTransferRequested(true);
         c9.setTransferReason("被申请人失联，调解无法进行");
         caseRepository.save(c9);
@@ -332,6 +383,35 @@ public class DataSeeder implements CommandLineRunner {
         r11.setOutcome("FAIL");
         recordRepository.save(r11);
         timelineService.record(c11.getId(), "RECORD", "第1次调解笔录", "被申请人拒绝调解，调解终结。", li);
+
+        // 13) 调解员排班原因改期1次（计入工作人员延误，绩效演示），当前已重新排期
+        MediationCase c13 = baseCase("TZ" + date(-4) + "013", CaseType.LOAN, CaseStatus.SCHEDULED,
+                Urgency.NORMAL, "林芳", "13811110013", null, "赵磊", "13911110013",
+                "本市光明街18号", false, new BigDecimal("12000"), "借款1.2万元小额纠纷",
+                "借条;微信转账记录", true);
+        c13.setWindowUserId(window.getId());
+        c13.setMediatorId(li.getId());
+        c13.setChannel(Channel.ONLINE);
+        c13.setRescheduleCount(1);
+        c13.setRescheduleRiskLevel(1);
+        caseRepository.save(c13);
+        timelineService.record(c13.getId(), "TRIAGE", "立案窗口完成分流", "线上调解，李调解员承办。", window);
+        MediationSchedule s13old = schedule(c13.getId(), li.getId(), Channel.ONLINE, "线上视频会议室B（法院视频调解平台·房间B）",
+                LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(2).plusHours(1),
+                ScheduleStatus.RESCHEDULED, 1, "改期原因：调解员临时有紧急案件冲突（发起方：调解员）");
+        s13old.setResourceId(onlineB.getId());
+        s13old.setCancelReason("调解员临时承办紧急案件，排班冲突");
+        s13old.setInitiator(RescheduleInitiator.MEDIATOR);
+        scheduleRepository.save(s13old);
+        timelineService.record(c13.getId(), "RESCHEDULE", "第1次改期",
+                "调解员排班冲突，平台重新匹配线上视频会议室B与新时段；本次系工作人员原因，计入调解员排班延误。", li);
+        MediationSchedule s13 = schedule(c13.getId(), li.getId(), Channel.ONLINE, "线上视频会议室B（法院视频调解平台·房间B）",
+                LocalDateTime.now().plusDays(1).withHour(15).withMinute(0).withSecond(0).withNano(0),
+                LocalDateTime.now().plusDays(1).withHour(16).withMinute(0).withSecond(0).withNano(0),
+                ScheduleStatus.PLANNED, 2, "由第1次改期而来（发起方：调解员）");
+        s13.setResourceId(onlineB.getId());
+        s13.setRescheduleFromId(s13old.getId());
+        scheduleRepository.save(s13);
     }
 
     /** 协议起草→双方人脸核验→线上签署 的完整留痕 */
@@ -432,6 +512,29 @@ public class DataSeeder implements CommandLineRunner {
         s.setRoundNo(round);
         s.setNote(note);
         return s;
+    }
+
+    private MeetingResource resource(String name, ResourceType type, String address, int capacity) {
+        MeetingResource r = new MeetingResource();
+        r.setName(name);
+        r.setType(type);
+        r.setAddress(address);
+        r.setCapacity(capacity);
+        r.setEnabled(true);
+        return r;
+    }
+
+    private void availability(Long caseId, String party, LocalDateTime start, LocalDateTime end,
+                              String note, User operator, PartyAvailabilityRepository repo) {
+        PartyAvailability pa = new PartyAvailability();
+        pa.setCaseId(caseId);
+        pa.setParty(party);
+        pa.setStartTime(start);
+        pa.setEndTime(end);
+        pa.setNote(note);
+        pa.setCreatedBy(operator == null ? null : operator.getId());
+        pa.setCreatedByName(operator == null ? null : operator.getRealName());
+        repo.save(pa);
     }
 
     private PerformancePlan plan(Long caseId, int no, BigDecimal due, LocalDate dueDate, String status,

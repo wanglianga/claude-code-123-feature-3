@@ -32,13 +32,15 @@ public class CaseService {
     private final FollowUpRepository followUpRepository;
     private final FaceVerificationRepository faceRepository;
     private final TransferMaterialRepository transferRepository;
+    private final PartyAvailabilityRepository availabilityRepository;
 
     public CaseService(CaseRepository caseRepository, UserRepository userRepository,
                        TimelineService timelineService, ScheduleRepository scheduleRepository,
                        MediationRecordRepository recordRepository, AgreementRepository agreementRepository,
                        PerformancePlanRepository planRepository, TimelineRepository timelineRepository,
                        DeliveryRepository deliveryRepository, FollowUpRepository followUpRepository,
-                       FaceVerificationRepository faceRepository, TransferMaterialRepository transferRepository) {
+                       FaceVerificationRepository faceRepository, TransferMaterialRepository transferRepository,
+                       PartyAvailabilityRepository availabilityRepository) {
         this.caseRepository = caseRepository;
         this.userRepository = userRepository;
         this.timelineService = timelineService;
@@ -51,6 +53,7 @@ public class CaseService {
         this.followUpRepository = followUpRepository;
         this.faceRepository = faceRepository;
         this.transferRepository = transferRepository;
+        this.availabilityRepository = availabilityRepository;
     }
 
     @Transactional
@@ -139,12 +142,16 @@ public class CaseService {
         m.put("followUps", followUpRepository.findByCaseIdOrderByFollowUpDateDesc(id));
         m.put("faceVerifications", faceRepository.findByCaseIdOrderByCreatedAtDesc(id));
         m.put("transferMaterial", transferRepository.findByCaseId(id).orElse(null));
+        m.put("availability", scheduleAvailability(id));
 
         // 风险标记汇总（供前端红黄提示）
         List<String> risks = new ArrayList<>();
         if (Boolean.TRUE.equals(c.getRespondentMissing())) risks.add("RESPONDENT_MISSING");
         if (Boolean.FALSE.equals(c.getEvidenceComplete())) risks.add("EVIDENCE_MISSING");
         if (c.getRescheduleCount() != null && c.getRescheduleCount() >= 2) risks.add("REPEAT_RESCHEDULE");
+        if (c.getRescheduleCount() != null && c.getRescheduleCount() >= 2
+                && !Boolean.TRUE.equals(c.getContinuationReviewed())) risks.add("DIVERSION_PENDING");
+        if ("DIVERT".equals(c.getContinuationDecision())) risks.add("DIVERTED");
         if (Boolean.TRUE.equals(c.getTransferRequested())) risks.add("TRANSFER_REQUESTED");
         agreementRepository.findByCaseId(id).ifPresent(a -> {
             if (Boolean.TRUE.equals(a.getInstallment())) risks.add("INSTALLMENT");
@@ -224,5 +231,13 @@ public class CaseService {
 
     public List<CaseType> caseTypes() {
         return List.of(CaseType.values());
+    }
+
+    /** 双方可用时间，按方别分组返回（排期/改期平台重匹配依据） */
+    private Map<String, Object> scheduleAvailability(Long caseId) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("APPLICANT", availabilityRepository.findByCaseIdAndPartyOrderByStartTimeAsc(caseId, "APPLICANT"));
+        m.put("RESPONDENT", availabilityRepository.findByCaseIdAndPartyOrderByStartTimeAsc(caseId, "RESPONDENT"));
+        return m;
     }
 }

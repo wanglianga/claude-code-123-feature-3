@@ -9,12 +9,18 @@
                active-text-color="#fff">
         <el-menu-item index="/todo"><el-icon><Bell /></el-icon><span>工作台</span></el-menu-item>
         <el-menu-item index="/cases"><el-icon><Files /></el-icon><span>案件管理</span></el-menu-item>
+        <el-menu-item v-if="auth.is('WINDOW','ADMIN')" index="/divert">
+          <el-icon><Sort /></el-icon><span>案件分流建议</span>
+        </el-menu-item>
         <el-menu-item index="/cases/new"><el-icon><EditPen /></el-icon><span>新建调解申请</span></el-menu-item>
         <el-menu-item v-if="auth.is('WINDOW','ADMIN','ASSISTANT')" index="/import">
           <el-icon><Upload /></el-icon><span>批量导入</span>
         </el-menu-item>
         <el-menu-item v-if="auth.is('WINDOW','ADMIN')" index="/mediators">
           <el-icon><UserFilled /></el-icon><span>调解员名册</span>
+        </el-menu-item>
+        <el-menu-item v-if="!auth.is('PARTY')" index="/mediator-performance">
+          <el-icon><TrendCharts /></el-icon><span>调解员绩效</span>
         </el-menu-item>
         <el-menu-item index="/dashboard"><el-icon><DataAnalysis /></el-icon><span>统计看板</span></el-menu-item>
       </el-menu>

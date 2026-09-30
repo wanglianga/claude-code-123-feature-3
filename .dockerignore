@@ -1,0 +1,10 @@
+# 构建上下文忽略项（多阶段构建在容器内重新安装/编译，无需宿主机产物）
+**/node_modules/
+**/dist/
+backend/target/
+**/.DS_Store
+**/*.log
+.git/
+.gitignore
+.idea/
+.vscode/

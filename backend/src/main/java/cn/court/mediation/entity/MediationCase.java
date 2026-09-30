@@ -89,6 +89,22 @@ public class MediationCase {
     /** 改期次数 */
     private Integer rescheduleCount = 0;
 
+    /**
+     * 改期效率风险等级：null/0=无，1=提示（第1次），2=黄色（≥2次多次改期），3=红色（≥3次且跨度长）。
+     * 多次改期由窗口人员判断是否继续调解。
+     */
+    private Integer rescheduleRiskLevel = 0;
+
+    /** 多次改期后窗口是否已作出"继续调解/分流"决定 */
+    private Boolean continuationReviewed = false;
+    /** 窗口决定：CONTINUE=继续调解，DIVERT=分流（进入案件分流建议/转立案等） */
+    @Column(length = 10)
+    private String continuationDecision;
+    @Column(length = 500)
+    private String continuationNote;
+    private LocalDateTime continuationReviewedAt;
+    private Long continuationReviewedBy;
+
     // ---------- 失联 / 缺材料 标记 ----------
     private Boolean respondentMissing = false;
     private LocalDateTime missingAt;

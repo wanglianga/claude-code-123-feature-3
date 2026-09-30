@@ -45,6 +45,8 @@ export const RISK_LABELS = {
   RESPONDENT_MISSING: '被申请人失联',
   EVIDENCE_MISSING: '证据材料缺失',
   REPEAT_RESCHEDULE: '多次改期',
+  DIVERSION_PENDING: '多次改期·待窗口决定是否继续',
+  DIVERTED: '窗口已确认分流',
   INSTALLMENT: '分期履行',
   OVERDUE: '付款逾期/部分履行',
   TRANSFER_REQUESTED: '已申请转立案'
@@ -54,9 +56,33 @@ export const RISK_TAG = {
   RESPONDENT_MISSING: 'danger',
   EVIDENCE_MISSING: 'danger',
   REPEAT_RESCHEDULE: 'warning',
+  DIVERSION_PENDING: 'danger',
+  DIVERTED: 'info',
   INSTALLMENT: 'info',
   OVERDUE: 'danger',
   TRANSFER_REQUESTED: 'warning'
+}
+
+export const RESCHEDULE_INITIATORS = {
+  APPLICANT: '申请人临时改期',
+  RESPONDENT: '被申请人临时改期',
+  BOTH_PARTIES: '双方时间冲突改期',
+  MEDIATOR: '调解员排班冲突',
+  COURT: '院方/平台原因'
+}
+
+// 是否属于当事人临时变更（不计工作人员延误）
+export const INITIATOR_PARTY_SIDE = {
+  APPLICANT: true,
+  RESPONDENT: true,
+  BOTH_PARTIES: true,
+  MEDIATOR: false,
+  COURT: false
+}
+
+export const RESOURCE_TYPES = {
+  OFFLINE_ROOM: '线下调解室',
+  ONLINE_MEETING: '线上视频会议'
 }
 
 export const PLAN_STATUS = {

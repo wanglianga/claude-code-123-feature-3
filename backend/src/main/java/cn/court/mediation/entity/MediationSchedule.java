@@ -1,6 +1,7 @@
 package cn.court.mediation.entity;
 
 import cn.court.mediation.enums.Channel;
+import cn.court.mediation.enums.RescheduleInitiator;
 import cn.court.mediation.enums.ScheduleStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -20,6 +21,9 @@ public class MediationSchedule {
 
     private Long caseId;
     private Long mediatorId;
+
+    /** 占用的调解资源（线下调解室/线上视频会议） */
+    private Long resourceId;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 10)
@@ -43,7 +47,19 @@ public class MediationSchedule {
     @Column(length = 500)
     private String note;
 
-    /** 申请人、被申请人是否确认出席 */
+    /** 该排期被取消/改期时登记的取消原因（独立留痕，供卷宗与归责使用） */
+    @Column(length = 300)
+    private String cancelReason;
+
+    /** 改期发起方：申请人/被申请人/双方/调解员/院方 */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 15)
+    private RescheduleInitiator initiator;
+
+    /** 若由改期产生，指向上一条被改期的排期 */
+    private Long rescheduleFromId;
+
+    /** 申请人、被申请人是否确认出席（改期后新排期需双方重新确认） */
     private Boolean applicantConfirmed = false;
     private Boolean respondentConfirmed = false;
 
