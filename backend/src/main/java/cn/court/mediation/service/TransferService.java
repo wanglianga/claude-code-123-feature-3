@@ -279,6 +279,7 @@ public class TransferService {
             case "EVIDENCE" -> "证据材料争议较大，需诉讼查明";
             case "REJECT" -> "一方明确拒绝调解";
             case "OVERDUE" -> "协议达成后付款逾期/拒不履行";
+            case "RESCHEDULE" -> "多次临时改期，调解效率风险，窗口确认分流";
             default -> "其他不适宜继续调解情形";
         };
     }

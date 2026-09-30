@@ -1,0 +1,9 @@
+**/node_modules
+**/target
+**/.git
+**/.idea
+**/.vscode
+backend/src/main/resources/static/assets
+*.log
+.gitignore
+CLAUDE.md

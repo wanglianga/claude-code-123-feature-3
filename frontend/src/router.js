@@ -13,7 +13,8 @@ const routes = [
       { path: 'cases/:id', name: 'caseDetail', component: () => import('./views/CaseDetail.vue'), meta: { title: '案件详情' } },
       { path: 'import', name: 'import', component: () => import('./views/BatchImport.vue'), meta: { title: '批量导入' } },
       { path: 'dashboard', name: 'dashboard', component: () => import('./views/Dashboard.vue'), meta: { title: '统计看板' } },
-      { path: 'mediators', name: 'mediators', component: () => import('./views/Mediators.vue'), meta: { title: '调解员名册' } }
+      { path: 'mediators', name: 'mediators', component: () => import('./views/Mediators.vue'), meta: { title: '调解员名册' } },
+      { path: 'mediator-performance', name: 'mediatorPerformance', component: () => import('./views/MediatorPerformance.vue'), meta: { title: '调解员绩效' } }
     ]
   }
 ]

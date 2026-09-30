@@ -45,6 +45,7 @@ export const RISK_LABELS = {
   RESPONDENT_MISSING: '被申请人失联',
   EVIDENCE_MISSING: '证据材料缺失',
   REPEAT_RESCHEDULE: '多次改期',
+  EFFICIENCY_RISK: '调解效率风险待窗口决定',
   INSTALLMENT: '分期履行',
   OVERDUE: '付款逾期/部分履行',
   TRANSFER_REQUESTED: '已申请转立案'
@@ -54,9 +55,16 @@ export const RISK_TAG = {
   RESPONDENT_MISSING: 'danger',
   EVIDENCE_MISSING: 'danger',
   REPEAT_RESCHEDULE: 'warning',
+  EFFICIENCY_RISK: 'danger',
   INSTALLMENT: 'info',
   OVERDUE: 'danger',
   TRANSFER_REQUESTED: 'warning'
+}
+
+export const CHANGE_SOURCE = {
+  PARTY_TEMP: '当事人/双方临时变更',
+  STAFF: '工作人员（调解员/窗口）',
+  PLATFORM: '平台'
 }
 
 export const PLAN_STATUS = {

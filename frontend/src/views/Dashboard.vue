@@ -52,6 +52,12 @@
             <el-descriptions-item label="多次改期案件（≥2次）">
               <el-tag type="warning">{{ d.risks.repeatReschedule }} 件</el-tag>
             </el-descriptions-item>
+            <el-descriptions-item label="效率风险待窗口决定">
+              <el-tag type="danger">{{ d.risks.efficiencyPending ?? 0 }} 件</el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="重匹配建议待窗口确认">
+              <el-tag type="warning">{{ d.risks.rematchPending ?? 0 }} 件</el-tag>
+            </el-descriptions-item>
             <el-descriptions-item label="被申请人失联在办">
               <el-tag type="danger">{{ d.risks.missing }} 件</el-tag>
             </el-descriptions-item>

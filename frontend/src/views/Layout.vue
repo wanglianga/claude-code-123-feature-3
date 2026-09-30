@@ -16,6 +16,9 @@
         <el-menu-item v-if="auth.is('WINDOW','ADMIN')" index="/mediators">
           <el-icon><UserFilled /></el-icon><span>调解员名册</span>
         </el-menu-item>
+        <el-menu-item v-if="auth.is('WINDOW','ADMIN','MEDIATOR')" index="/mediator-performance">
+          <el-icon><Trophy /></el-icon><span>调解员绩效</span>
+        </el-menu-item>
         <el-menu-item index="/dashboard"><el-icon><DataAnalysis /></el-icon><span>统计看板</span></el-menu-item>
       </el-menu>
     </el-aside>

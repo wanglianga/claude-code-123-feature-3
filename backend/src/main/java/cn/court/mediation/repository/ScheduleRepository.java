@@ -15,4 +15,8 @@ public interface ScheduleRepository extends JpaRepository<MediationSchedule, Lon
     /** 调解员在给定时间段内的有效排期冲突检测 */
     List<MediationSchedule> findByMediatorIdAndStatusInAndStartTimeLessThanAndEndTimeGreaterThan(
             Long mediatorId, List<ScheduleStatus> statuses, LocalDateTime end, LocalDateTime start);
+
+    /** 调解室/线上会议在给定时间段内的占用检测（仅有效排期） */
+    List<MediationSchedule> findByRoomIdAndStatusInAndStartTimeLessThanAndEndTimeGreaterThan(
+            Long roomId, List<ScheduleStatus> statuses, LocalDateTime end, LocalDateTime start);
 }

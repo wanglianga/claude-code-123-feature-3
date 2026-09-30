@@ -89,6 +89,18 @@ public class MediationCase {
     /** 改期次数 */
     private Integer rescheduleCount = 0;
 
+    // ---------- 多次改期 · 调解效率风险与窗口分流决定 ----------
+    /**
+     * 多次改期效率风险的窗口决定：
+     * null 未提示/未决定；CONTINUE 继续调解；TRIAGE 确认分流（按分流建议转立案/终止调解）。
+     */
+    @Column(length = 15)
+    private String efficiencyDecision;
+    @Column(length = 500)
+    private String efficiencyNote;
+    private Long efficiencyDecidedBy;
+    private LocalDateTime efficiencyDecidedAt;
+
     // ---------- 失联 / 缺材料 标记 ----------
     private Boolean respondentMissing = false;
     private LocalDateTime missingAt;

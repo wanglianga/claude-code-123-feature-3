@@ -1,0 +1,38 @@
+services:
+  mediation-platform:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: court-mediation-platform:latest
+    container_name: court-mediation-platform
+    ports:
+      - "8080:8080"
+    environment:
+      # 默认 H2 内存库，免安装；重启后数据由种子程序重新初始化
+      SPRING_PROFILES_ACTIVE: h2
+      TZ: Asia/Shanghai
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  # 可选 MySQL：docker compose --profile mysql up
+  mysql:
+    image: mysql:8.0
+    profiles: ["mysql"]
+    container_name: court-mediation-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: court_mediation
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+volumes:
+  mysql-data:

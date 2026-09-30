@@ -19,10 +19,13 @@ public class StatisticsService {
 
     private final CaseRepository caseRepository;
     private final PerformancePlanRepository planRepository;
+    private final EfficiencyService efficiencyService;
 
-    public StatisticsService(CaseRepository caseRepository, PerformancePlanRepository planRepository) {
+    public StatisticsService(CaseRepository caseRepository, PerformancePlanRepository planRepository,
+                             EfficiencyService efficiencyService) {
         this.caseRepository = caseRepository;
         this.planRepository = planRepository;
+        this.efficiencyService = efficiencyService;
     }
 
     @Transactional(readOnly = true)
@@ -116,6 +119,16 @@ public class StatisticsService {
         risks.put("repeatReschedule", all.stream().filter(c -> c.getRescheduleCount() != null && c.getRescheduleCount() >= 2).count());
         risks.put("missing", missing);
         risks.put("evidenceGap", all.stream().filter(c -> Boolean.FALSE.equals(c.getEvidenceComplete())).count());
+        risks.put("efficiencyPending", all.stream()
+                .filter(c -> c.getRescheduleCount() != null && c.getRescheduleCount() >= 2
+                        && c.getEfficiencyDecision() == null
+                        && !Boolean.TRUE.equals(c.getTransferRequested())
+                        && c.getStatus() != CaseStatus.TRANSFERRED
+                        && c.getStatus() != CaseStatus.CLOSED
+                        && c.getStatus() != CaseStatus.MEDIATION_FAILED
+                        && c.getStatus() != CaseStatus.PERFORMED_DONE)
+                .count());
+        risks.put("rematchPending", efficiencyService.pendingProposals().size());
         m.put("risks", risks);
 
         return m;
@@ -127,6 +140,9 @@ public class StatisticsService {
         List<MediationCase> all = caseRepository.findAll();
         List<Map<String, Object>> todos = new ArrayList<>();
         LocalDate today = LocalDate.now();
+        java.util.Set<Long> proposalCases = new java.util.HashSet<>();
+        efficiencyService.pendingProposals()
+                .forEach(p -> proposalCases.add(p.getCaseId()));
 
         for (MediationCase c : all) {
             String action = null;
@@ -138,8 +154,19 @@ public class StatisticsService {
                     } else if (Boolean.TRUE.equals(c.getTransferRequested())
                             && c.getStatus() != CaseStatus.TRANSFERRED) {
                         action = "转立案材料待接收"; tag = "warning";
+                    } else if (proposalCases.contains(c.getId())) {
+                        action = "改期重匹配建议待窗口确认分流"; tag = "warning";
                     } else if (Boolean.FALSE.equals(c.getEvidenceComplete())) {
                         action = "证据材料缺件跟进"; tag = "warning";
+                    }
+                    // 多次改期效率风险：待窗口决定是否继续调解
+                    if (action == null
+                            && c.getRescheduleCount() != null && c.getRescheduleCount() >= 2
+                            && c.getEfficiencyDecision() == null
+                            && !Boolean.TRUE.equals(c.getTransferRequested())
+                            && EnumSet.of(CaseStatus.SCHEDULED, CaseStatus.MEDIATING,
+                                    CaseStatus.TRIAGED, CaseStatus.OVERDUE, CaseStatus.PERFORMING).contains(c.getStatus())) {
+                        action = "多次改期效率风险，待决定是否继续调解"; tag = "danger";
                     }
                 }
                 case MEDIATOR -> {
